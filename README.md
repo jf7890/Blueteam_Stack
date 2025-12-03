@@ -1,5 +1,26 @@
 # 🚀 Wazuh Docker – Multi-Node Deployment
 
+---
+
+## ⚠️ NOTE – System Recommendation
+
+To ensure **best performance and stability**, it is strongly recommended to run this stack on:
+
+| Resource | Recommended |
+|----------|-------------|
+| 💽 Disk   | **SSD (Highly recommended)** |
+| 🧠 CPU    | **Minimum 6 cores** |
+| 🧮 RAM    | **Minimum 8 GB** |
+| 📦 Storage| **At least 50 GB free space** |
+
+> ❗ Running on HDD or low-resource systems may result in:
+> - Slow indexing
+> - High latency in dashboard
+> - Service crashes
+> - OpenSearch instability
+
+---
+
 ## ⚙️ Installation
 
 ### 1️⃣ Clone the repository
