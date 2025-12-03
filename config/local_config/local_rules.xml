@@ -1,0 +1,108 @@
+<!-- 
+  Wazuh Custom Rules for ModSecurity/WAF SQL Injection Detection
+  File location: /var/ossec/etc/rules/local_rules.xml
+  
+  Note: transaction.messages is a string contain JSON array, not parsed object
+-->
+
+<group name="modsecurity,sqli,web_attack,">
+
+  <!-- Rule to detect base ModSecurity log -->
+  <rule id="100010" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="transaction.producer.modsecurity">\.+</field>
+    <description>ModSecurity WAF log detected</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Rule detect SQL Injection via libinjection (ruleId 942100) -->
+  <rule id="100011" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">"ruleId":"942100"</field>
+    <description>ModSecurity: SQL Injection Attack Detected via libinjection</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Rule detect bất kỳ SQL Injection attack nào (generic) -->
+  <rule id="100012" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">attack-sqli</field>
+    <description>ModSecurity: SQL Injection Attack Detected</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Rule detect Anomaly Score vượt ngưỡng (ruleId 949110) -->
+  <rule id="100013" level="8">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">"ruleId":"949110"</field>
+    <description>ModSecurity: Inbound Anomaly Score Exceeded - Potential Attack Blocked</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Rule detect request bị block (403 response) - ĐÃ MATCH -->
+  <rule id="100014" level="7">
+    <if_sid>100010</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>ModSecurity: Request Blocked with 403 Forbidden</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- Composite rule: SQL Injection + Blocked (HIGH PRIORITY) -->
+  <rule id="100015" level="12">
+    <if_sid>100011</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>ModSecurity: SQL Injection Attack Successfully Blocked from $(transaction.client_ip)</description>
+    <group>authentication_failed,pci_dss_11.4,pci_dss_10.2.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect repeated SQL Injection attempts từ cùng IP -->
+  <rule id="100016" level="15" frequency="3" timeframe="300">
+    <if_matched_sid>100011</if_matched_sid>
+    <same_field>transaction.client_ip</same_field>
+    <description>ModSecurity: Multiple SQL Injection attempts from same IP: $(transaction.client_ip)</description>
+    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC7.2,</group>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect SQL Injection targeting specific URI -->
+  <rule id="100017" level="11">
+    <if_sid>100011</if_sid>
+    <field name="transaction.request.uri">vulnerabilities</field>
+    <description>ModSecurity: SQL Injection Attack targeting vulnerable endpoint: $(transaction.request.uri)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect message "SQL Injection Attack Detected via libinjection" -->
+  <rule id="100018" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">SQL Injection Attack Detected via libinjection</field>
+    <description>ModSecurity: libinjection detected SQL Injection pattern</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Rule detect các OWASP CRS SQLi rules khác -->
+  <rule id="100019" level="10">
+    <if_sid>100010</if_sid>
+    <field name="transaction.messages">942\d{3}</field>
+    <description>ModSecurity: OWASP CRS SQL Injection Rule Triggered</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+</group>
