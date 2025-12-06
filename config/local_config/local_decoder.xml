@@ -25,11 +25,4 @@
     <program_name>local_decoder_example</program_name>
 </decoder>
 
-<decoders>
-
-<decoder name="modsec_sqli">
-  <if_matched_sid>modsec_json</if_matched_sid>
-  <regex>"ruleId":"942100"</regex>
-  <order>yes</order>
-</decoder>
 
