@@ -1,28 +1,94 @@
-<!-- Local Decoders -->
-
-<!-- Modify it at your will. -->
-<!-- Copyright (C) 2015, Wazuh Inc. -->
-
 <!--
-  - Allowed static fields:
-  - location   - where the log came from (only on FTS)
-  - srcuser    - extracts the source username
-  - dstuser    - extracts the destination (target) username
-  - user       - an alias to dstuser (only one of the two can be used)
-  - srcip      - source ip
-  - dstip      - dst ip
-  - srcport    - source port
-  - dstport    - destination port
-  - protocol   - protocol
-  - id         - event id
-  - url        - url of the event
-  - action     - event action (deny, drop, accept, etc)
-  - status     - event status (success, failure, etc)
-  - extra_data - Any extra data
+  Custom decoders for Web IDS / WAF (ModSecurity + Web logs)
+  Location: /var/ossec/etc/decoders/local_decoder.xml
 -->
 
-<decoder name="local_decoder_example">
-    <program_name>local_decoder_example</program_name>
-</decoder>
+<decoders>
+
+  <!-- ================================================= -->
+  <!-- BASE DECODER FOR JSON LOGS (MODSECURITY) -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-json-base">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+  </decoder>
+
+  <!-- ================================================= -->
+  <!-- MODSECURITY PRODUCER -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-producer">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+    <json_field name="transaction.producer.modsecurity"/>
+  </decoder>
+
+  <!-- ================================================= -->
+  <!-- CLIENT IP -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-client-ip">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+    <json_field name="transaction.client_ip"/>
+  </decoder>
+
+  <!-- ================================================= -->
+  <!-- REQUEST URI -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-uri">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+    <json_field name="transaction.request.uri"/>
+  </decoder>
+
+  <!-- ================================================= -->
+  <!-- STATUS CODE -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-status">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+    <json_field name="transaction.response.http_code"/>
+  </decoder>
+
+  <!-- ================================================= -->
+  <!-- MESSAGE ARRAY -->
+  <!-- ================================================= -->
+
+  <decoder name="modsecurity-message-array">
+    <prematch>^\{</prematch>
+    <json type="yes"/>
+    <json_field name="transaction.messages"/>
+  </decoder>
 
 
+  <!-- ================================================= -->
+  <!-- APACHE LOG DECODER -->
+  <!-- ================================================= -->
+
+  <decoder name="apache-access">
+    <program_name>apache2|httpd</program_name>
+    <regex>
+      ^(\S+) (\S+) (\S+) \[([^\]]+)\] "([^"]+)" (\d{3}) (\d+)
+    </regex>
+    <order>srcip ident user timestamp request status bytes</order>
+  </decoder>
+
+
+  <!-- ================================================= -->
+  <!-- NGINX LOG DECODER -->
+  <!-- ================================================= -->
+
+  <decoder name="nginx-access">
+    <program_name>nginx</program_name>
+    <regex>
+      ^(\S+) - - \[([^\]]+)\] "([^"]+)" (\d{3}) (\d+)
+    </regex>
+    <order>srcip timestamp request status bytes</order>
+  </decoder>
+
+
+</decoders>
