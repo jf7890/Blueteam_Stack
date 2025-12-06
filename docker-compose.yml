@@ -176,7 +176,6 @@ services:
       - ./logs/juiceshop:/var/log/juiceshop
       - ./fim/juiceshop_uploads:/juice-shop/uploads
       - ./fim/juiceshop_data:/juice-shop/data
-      - ./fim/juiceshop_config:/juice-shop/config
     networks:
       - capstone-dmz-network
 
@@ -207,7 +206,6 @@ services:
       # FIM Juiceshop
       - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
       - ./fim/juiceshop_data:/var/monitor/juiceshop/data
-      - ./fim/juiceshop_config:/var/monitor/juiceshop/config
     depends_on:
       - backend
       - dvwa
