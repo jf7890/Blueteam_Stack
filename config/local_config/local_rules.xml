@@ -1,108 +1,160 @@
-<!-- 
-  Wazuh Custom Rules for ModSecurity/WAF SQL Injection Detection
-  File location: /var/ossec/etc/rules/local_rules.xml
-  
-  Note: transaction.messages is a string contain JSON array, not parsed object
+<!--
+  local_rules.xml
+  Custom Wazuh rules for Web IDS (ModSecurity + FIM) - tailored for DMZ stack
+  - Place at: /var/ossec/etc/rules/local_rules.xml
+  Notes:
+    * Transaction fields from ModSecurity JSON are treated as text (string).
+    * if_sid refers to the parent rule ID (the rule that has already matched).
 -->
 
-<group name="modsecurity,sqli,web_attack,">
+<!-- ========================= -->
+<!-- ModSecurity / WAF rules   -->
+<!-- ========================= -->
+<group name="modsecurity,web_attack,sqli">
 
-  <!-- Rule to detect base ModSecurity log -->
+  <!-- 100010: Identify ModSecurity JSON audit log entries -->
   <rule id="100010" level="3">
     <decoded_as>json</decoded_as>
-    <field name="transaction.producer.modsecurity">\.+</field>
-    <description>ModSecurity WAF log detected</description>
+    <!-- match production field identifying modsecurity producer -->
+    <field name="transaction.producer.modsecurity">.+</field>
+    <description>ModSecurity WAF log detected (JSON audit)</description>
     <options>no_full_log</options>
   </rule>
 
-  <!-- Rule detect SQL Injection via libinjection (ruleId 942100) -->
+  <!-- 100011: libinjection SQLi (specific ruleId 942100) -->
   <rule id="100011" level="10">
     <if_sid>100010</if_sid>
-    <field name="transaction.messages">"ruleId":"942100"</field>
-    <description>ModSecurity: SQL Injection Attack Detected via libinjection</description>
+    <!-- search for the numeric token in the messages string -->
+    <field name="transaction.messages">942100</field>
+    <description>ModSecurity: SQL Injection Attack Detected via libinjection (942100)</description>
     <mitre>
       <id>T1190</id>
     </mitre>
+    <group>web,sqli,modsec</group>
     <options>no_full_log</options>
   </rule>
 
-  <!-- Rule detect bất kỳ SQL Injection attack nào (generic) -->
+  <!-- 100012: Generic SQLi detection (CRS keywords or 'attack-sqli' marker) -->
   <rule id="100012" level="10">
     <if_sid>100010</if_sid>
-    <field name="transaction.messages">attack-sqli</field>
-    <description>ModSecurity: SQL Injection Attack Detected</description>
+    <!-- generic search for common markers -->
+    <field name="transaction.messages">attack-sqli|sql injection|sql-injection|sql_injection|union\s+select|UNION\s+SELECT</field>
+    <description>ModSecurity: Generic SQL Injection pattern detected</description>
     <mitre>
       <id>T1190</id>
     </mitre>
+    <group>web,sqli,modsec</group>
     <options>no_full_log</options>
   </rule>
 
-  <!-- Rule detect Anomaly Score vượt ngưỡng (ruleId 949110) -->
+  <!-- 100013: Anomaly score exceeded (example ruleId 949110) -->
   <rule id="100013" level="8">
     <if_sid>100010</if_sid>
-    <field name="transaction.messages">"ruleId":"949110"</field>
-    <description>ModSecurity: Inbound Anomaly Score Exceeded - Potential Attack Blocked</description>
+    <field name="transaction.messages">949110</field>
+    <description>ModSecurity: Inbound Anomaly Score Exceeded (potential attack)</description>
+    <group>web,anomaly,modsec</group>
     <options>no_full_log</options>
   </rule>
 
-  <!-- Rule detect request bị block (403 response) - ĐÃ MATCH -->
+  <!-- 100014: Request blocked (403) logged in the same ModSecurity record -->
   <rule id="100014" level="7">
     <if_sid>100010</if_sid>
     <field name="transaction.response.http_code">^403$</field>
     <description>ModSecurity: Request Blocked with 403 Forbidden</description>
+    <group>web,modsec,blocked</group>
     <options>no_full_log</options>
   </rule>
 
-  <!-- Composite rule: SQL Injection + Blocked (HIGH PRIORITY) -->
+  <!-- 100015: SQLi detected AND 403 in same transaction (high confidence) -->
   <rule id="100015" level="12">
     <if_sid>100011</if_sid>
+    <!-- require that the same modsec JSON contains a 403 response code -->
     <field name="transaction.response.http_code">^403$</field>
-    <description>ModSecurity: SQL Injection Attack Successfully Blocked from $(transaction.client_ip)</description>
-    <group>authentication_failed,pci_dss_11.4,pci_dss_10.2.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC6.8,tsc_CC7.2,tsc_CC7.3,</group>
+    <description>ModSecurity: SQL Injection attack detected and blocked (high confidence) from $(transaction.client_ip)</description>
+    <group>web,modsec,high_confidence</group>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
-  <!-- Rule detect repeated SQL Injection attempts từ cùng IP -->
+  <!-- 100016: Multiple SQLi attempts from same IP (correlation) -->
   <rule id="100016" level="15" frequency="3" timeframe="300">
     <if_matched_sid>100011</if_matched_sid>
     <same_field>transaction.client_ip</same_field>
     <description>ModSecurity: Multiple SQL Injection attempts from same IP: $(transaction.client_ip)</description>
-    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,hipaa_164.312.b,nist_800_53_SI.4,tsc_CC6.1,tsc_CC7.2,</group>
+    <group>web,modsec,repeated_attempts</group>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
-  <!-- Rule detect SQL Injection targeting specific URI -->
+  <!-- 100017: SQLi against specific URI path (example: 'vulnerabilities') -->
   <rule id="100017" level="11">
     <if_sid>100011</if_sid>
     <field name="transaction.request.uri">vulnerabilities</field>
-    <description>ModSecurity: SQL Injection Attack targeting vulnerable endpoint: $(transaction.request.uri)</description>
+    <description>ModSecurity: SQL Injection targeting vulnerable endpoint: $(transaction.request.uri) from $(transaction.client_ip)</description>
+    <group>web,modsec,targeted</group>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
-  <!-- Rule detect message "SQL Injection Attack Detected via libinjection" -->
+  <!-- 100018: OWASP CRS SQLi rules (catch ruleId patterns 942xxx) -->
   <rule id="100018" level="10">
     <if_sid>100010</if_sid>
-    <field name="transaction.messages">SQL Injection Attack Detected via libinjection</field>
-    <description>ModSecurity: libinjection detected SQL Injection pattern</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-  </rule>
-
-  <!-- Rule detect các OWASP CRS SQLi rules khác -->
-  <rule id="100019" level="10">
-    <if_sid>100010</if_sid>
     <field name="transaction.messages">942\d{3}</field>
-    <description>ModSecurity: OWASP CRS SQL Injection Rule Triggered</description>
+    <description>ModSecurity: OWASP CRS SQL Injection rule triggered (942xxx)</description>
+    <group>web,sqli,modsec</group>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
 </group>
+
+<!-- ========================= -->
+<!-- Web / FIM (File Integrity) rules -->
+<!-- ========================= -->
+<group name="web,webshell,fim">
+
+  <!-- 100100: New file added (syscheck base SID 31100) and filename contains .php (possible upload) -->
+  <rule id="100100" level="12">
+    <if_sid>31100</if_sid>
+    <!-- match the path/name for php, jsp, asp, as potential web shells -->
+    <match>\.(php|phtml|php5|php7|jsp|asp|aspx)$</match>
+    <description>FIM: New web script uploaded - possible webshell: $(full_log)</description>
+    <group>web,webshell,fim</group>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- 100101: File modified (syscheck base SID 31101) and diff/content contains suspicious tokens -->
+  <rule id="100101" level="12">
+    <if_sid>31101</if_sid>
+    <!-- syscheck diffs or alerts may include content; search for common webshell signatures -->
+    <match>base64_decode|eval\(|shell_exec|exec\(|passthru\(|system\(|popen\(|preg_replace\(.*\/e|assert\(|cmd=</match>
+    <description>FIM: Web file modified and suspicious content found - possible backdoor or webshell</description>
+    <group>web,webshell,fim</group>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- 100102: PHP file added inside upload directory (higher confidence) -->
+  <rule id="100102" level="13">
+    <if_sid>31100</if_sid>
+    <match>/var/monitor/.*/(uploads|upload|tmp|files)/.*\.(php|phtml|php5)$</match>
+    <description>FIM: PHP file uploaded into web upload directory - high risk</description>
+    <group>web,webshell,high_risk</group>
+    <options>no_full_log</options>
+  </rule>
+
+  <!-- 100103: Many file creations in short time (possible mass upload / attack) -->
+  <rule id="100103" level="11" frequency="10" timeframe="60">
+    <if_matched_sid>31100</if_matched_sid>
+    <description>FIM: Multiple new files created in short time (possible mass upload)</description>
+    <group>web,anom_uploads</group>
+  </rule>
+
+  <!-- 100104: Suspicious file rename/permission change (post-exploitation indicator) -->
+  <rule id="100104" level="10">
+    <if_sid>31102</if_sid>
+    <match>chmod|chown|setuid|suid</match>
+    <description>FIM: File permi
