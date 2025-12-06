@@ -24,3 +24,13 @@
 <decoder name="local_decoder_example">
     <program_name>local_decoder_example</program_name>
 </decoder>
+
+<decoders>
+
+  <decoder name="modsec-json">
+    <prematch>^\{</prematch>
+    <json>yes</json>
+    <order>transaction.client_ip,request.uri,response.status_code,messages.message</order>
+  </decoder>
+
+</decoders>
