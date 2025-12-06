@@ -26,7 +26,7 @@ To ensure **best performance and stability**, it is strongly recommended to run 
 ### 1️⃣ Clone the repository
 ```bash
 git clone https://github.com/CyberSecN00bers/Capstone_Blue_Stack.git
-cd Capstone_Blue_Stack
+cd Blueteam_Stack
 ```
 
 ---
