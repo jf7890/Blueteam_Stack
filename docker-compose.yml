@@ -131,7 +131,6 @@ services:
       - ./config/mysql-logging.cnf:/mysql-logging.cnf:ro
       - ./logs/mysql:/var/log/mysql
       - ./logs/apache:/var/log/apache2
-      - ./fim/dvwa_src:/var/www/html
       - ./fim/dvwa_upload:/var/www/html/hackable/uploads
     networks:
       - capstone-dmz-network
@@ -201,7 +200,6 @@ services:
       - ./logs/postgres:/var/log/app/postgres:ro
       - ./logs/juiceshop:/var/log/app/juiceshop:ro
       # FIM DVWA
-      - ./fim/dvwa_src:/var/monitor/dvwa
       - ./fim/dvwa_upload:/var/monitor/dvwa_upload
       # FIM Juiceshop
       - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
