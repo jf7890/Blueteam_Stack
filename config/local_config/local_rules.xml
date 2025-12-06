@@ -1,102 +1,83 @@
-<group name="fim,web">
+<group name="web,modsecurity,fim">
 
+  <!-- ================================================= -->
+  <!-- BASE RULE FOR MODSECURITY -->
+  <!-- ================================================= -->
 
-  <!-- ========================= -->
-  <!-- FILE INTEGRITY MONITORING -->
-  <!-- ========================= -->
-
-  <!-- Detect file modification -->
-  <rule id="100100" level="7">
-    <if_sid>550</if_sid>
-    <description>FIM: File modified: $(file)</description>
-    <mitre>T1070</mitre>
-    <group>fim,integrity,modification</group>
+  <rule id="100000" level="2">
+    <if_group>json</if_group>
+    <field name="transaction.producer.modsecurity">.</field>
+    <description>ModSecurity log detected</description>
   </rule>
 
-  <!-- Detect file deleted -->
-  <rule id="100101" level="9">
-    <if_sid>553</if_sid>
-    <description>FIM: File removed: $(file)</description>
-    <mitre>T1070</mitre>
-    <group>fim,destruction,attacker</group>
+
+  <!-- ================================================= -->
+  <!-- SQL INJECTION -->
+  <!-- ================================================= -->
+
+  <rule id="100010" level="10">
+    <if_sid>100000</if_sid>
+    <regex>942100|attack-sqli|SQL Injection</regex>
+    <description>SQL Injection attempt detected by ModSecurity</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
-  <!-- Detect new file -->
-  <rule id="100102" level="5">
-    <if_sid>554</if_sid>
-    <description>FIM: New file detected: $(file)</description>
-    <mitre>T1105</mitre>
-    <group>fim,persistence,suspicious</group>
+
+  <!-- ================================================= -->
+  <!-- BLOCKED REQUEST -->
+  <!-- ================================================= -->
+
+  <rule id="100020" level="8">
+    <if_sid>100000</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>Request blocked by WAF</description>
   </rule>
 
-  <!-- Detect permisos/chmod -->
-  <rule id="100103" level="8">
-    <if_sid>551</if_sid>
-    <description>FIM: Permission changed: $(file)</description>
-    <mitre>T1222</mitre>
-    <group>fim,permissions,privilege</group>
+
+  <!-- ================================================= -->
+  <!-- SQLI BLOCKED -->
+  <!-- ================================================= -->
+
+  <rule id="100021" level="12">
+    <if_sid>100010</if_sid>
+    <field name="transaction.response.http_code">^403$</field>
+    <description>SQL Injection blocked by WAF from $(transaction.client_ip)</description>
   </rule>
 
-  <!-- =================== -->
-  <!-- WEB FILE ATTACKS -->
-  <!-- =================== -->
 
-  <!-- PHP WebShell -->
-  <rule id="100200" level="12">
-    <if_matched_sid>100102</if_matched_sid>
-    <field name="file">\.php$|\.jsp$|\.asp$|\.aspx$</field>
-    <description>WebShell suspected upload detected: $(file)</description>
-    <mitre>T1505</mitre>
-    <group>webshell,malware,webattack</group>
+  <!-- ================================================= -->
+  <!-- BRUTE FORCE SQLI -->
+  <!-- ================================================= -->
+
+  <rule id="100022" level="15" frequency="3" timeframe="300">
+    <if_matched_sid>100010</if_matched_sid>
+    <same_field>transaction.client_ip</same_field>
+    <description>Multiple SQL Injection attempts from same IP</description>
   </rule>
 
-  <!-- Script injection -->
-  <rule id="100201" level="10">
-    <if_matched_sid>100102</if_matched_sid>
-    <field name="file">\.js$|\.sh$|\.py$</field>
-    <description>Suspicious script upload detected: $(file)</description>
-    <mitre>T1059</mitre>
-    <group>webattack,script,execution</group>
+
+  <!-- ================================================= -->
+  <!-- WEB SHELL UPLOAD -->
+  <!-- ================================================= -->
+
+  <rule id="100100" level="12">
+    <if_group>syscheck</if_group>
+    <regex>\.php$|\.jsp$|\.asp$|\.aspx$</regex>
+    <description>Webshell file uploaded</description>
   </rule>
 
-  <!-- Data file exfil marker -->
-  <rule id="100202" level="6">
+
+  <!-- ================================================= -->
+  <!-- WEB SHELL COMMAND EXEC -->
+  <!-- ================================================= -->
+
+  <rule id="100101" level="13">
     <if_sid>100100</if_sid>
-    <field name="file">\.sql$|\.zip$|\.tar$|\.bak$</field>
-    <description>Archive or database file modified: $(file)</description>
-    <mitre>T1020</mitre>
-    <group>exfiltration,web,data</group>
+    <regex>cmd=|exec|system\(|passthru</regex>
+    <description>Possible webshell command execution</description>
   </rule>
 
-  <!-- ====================== -->
-  <!-- MODSECURITY / WAF LOGS -->
-  <!-- ====================== -->
-
-  <!-- ModSecurity Critical -->
-  <rule id="100300" level="12">
-    <if_group>modsecurity</if_group>
-    <field name="data">CRITICAL|ERROR|SQLi|RCE|XSS</field>
-    <description>WAF Critical attack blocked</description>
-    <mitre>T1190</mitre>
-    <group>waf,modsec,attack,blocked</group>
-  </rule>
-
-  <!-- Brute / fuzz -->
-  <rule id="100301" level="9">
-    <if_group>modsecurity</if_group>
-    <field name="data">flood|brute|scan</field>
-    <description>WAF suspicious scanning activity detected</description>
-    <mitre>T1595</mitre>
-    <group>waf,reconnaissance,fuzzing</group>
-  </rule>
-
-  <!-- Apache Errors -->
-  <rule id="100350" level="7">
-    <if_group>apache</if_group>
-    <field name="data">403|406|5\d\d</field>
-    <description>Web server error likely caused by attack</description>
-    <mitre>T1046</mitre>
-    <group>web,error,attack</group>
-  </rule>
 
 </group>
