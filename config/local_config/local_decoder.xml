@@ -27,10 +27,9 @@
 
 <decoders>
 
-  <decoder name="modsec-json">
-    <prematch>^\{</prematch>
-    <json>yes</json>
-    <order>transaction.client_ip,request.uri,response.status_code,messages.message</order>
-  </decoder>
+<decoder name="modsec_sqli">
+  <if_matched_sid>modsec_json</if_matched_sid>
+  <regex>"ruleId":"942100"</regex>
+  <order>yes</order>
+</decoder>
 
-</decoders>
