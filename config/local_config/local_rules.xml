@@ -1,95 +1,64 @@
 <group name="custom,web,waf,fim,attack_chain,">
 
-  <!-- ================================================= -->
-  <!-- BASE RULE FOR WEB ATTACK (APACHE / NGINX / MODSEC) -->
-  <!-- ================================================= -->
+  <!-- ================= BASE WEB EVENT ================= -->
 
   <rule id="100000" level="2">
     <if_group>web</if_group>
-    <description>Base web traffic event</description>
+    <description>Base web access log</description>
   </rule>
 
-  <!-- ================================================= -->
-  <!-- SQL INJECTION DETECTION -->
-  <!-- ================================================= -->
+  <!-- ================= SQL INJECTION ================= -->
 
-  <!-- SQLi string pattern -->
   <rule id="100010" level="10">
     <if_sid>100000</if_sid>
-    <regex>(\%27)|(\')|(\-\-)|(\%23)|(#)|(\bunion\b)|(\bselect\b)|(\binformation_schema\b)</regex>
-    <description>SQL Injection attempt detected in HTTP request</description>
+    <regex>union|select|information_schema|sleep\(|benchmark\(|--|%</regex>
+    <description>SQL Injection attempt detected</description>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
-  <!-- SQLi success (HTTP 200) -->
   <rule id="100011" level="12">
     <if_sid>100010</if_sid>
     <field name="data.id">200</field>
-    <description>SQL Injection executed successfully (HTTP 200)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <description>SQL Injection success (HTTP 200)</description>
   </rule>
 
-  <!-- Repeated SQLi from same IP -->
   <rule id="100012" level="15" frequency="3" timeframe="300">
     <if_matched_sid>100010</if_matched_sid>
     <same_field>data.srcip</same_field>
-    <description>Multiple SQL Injection attempts from same IP</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <description>Multiple SQL injection attempts from one IP</description>
   </rule>
 
-  <!-- ================================================= -->
-  <!-- FIM: WEB FILE UPLOAD -->
-  <!-- ================================================= -->
+  <!-- ================= FIM: FILE UPLOAD ================= -->
 
-  <!-- File added -->
   <rule id="100100" level="8">
     <if_group>syscheck</if_group>
     <field name="syscheck.event">added</field>
-    <description>New file detected on web server</description>
+    <description>File added to monitored directory</description>
   </rule>
 
-  <!-- Upload to web directory -->
   <rule id="100101" level="10">
     <if_sid>100100</if_sid>
-    <regex>(/dvwa_upload/|/uploads/|/html/)</regex>
-    <description>File uploaded to web-accessible directory</description>
-    <mitre>
-      <id>T1505</id>
-    </mitre>
+    <regex>/dvwa_upload/|/uploads/|/html/</regex>
+    <description>File added in web directory</description>
   </rule>
 
-  <!-- Dangerous extension -->
   <rule id="100102" level="13">
     <if_sid>100101</if_sid>
-    <regex>\.(php|jsp|asp|aspx|sh|py|pl)$</regex>
-    <description>Webshell file detected by extension</description>
+    <regex>\.php$|\.jsp$|\.asp$|\.aspx$|\.sh$|\.py$</regex>
+    <description>Webshell extension detected</description>
     <mitre>
       <id>T1505</id>
     </mitre>
   </rule>
 
-  <!-- Multiple files upload -->
-  <rule id="100103" level="14" frequency="3" timeframe="120">
-    <if_matched_sid>100101</if_matched_sid>
-    <same_field>syscheck.path</same_field>
-    <description>Multiple file uploads in short time</description>
-  </rule>
+  <!-- ================= CORRELATION ================= -->
 
-  <!-- ================================================= -->
-  <!-- CORRELATION: SQLi → Upload -->
-  <!-- ================================================= -->
-
-  <!-- SQLi followed by file upload -->
   <rule id="100200" level="15">
     <if_matched_sid>100010</if_matched_sid>
     <if_matched_sid>100101</if_matched_sid>
-    <description>ATTACK CHAIN: SQL Injection followed by malicious file upload</description>
+    <description>Attack chain: SQLi followed by file upload</description>
     <mitre>
       <id>T1190</id>
       <id>T1505</id>
