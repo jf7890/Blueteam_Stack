@@ -7,28 +7,28 @@
     <description>Base web traffic detected</description>
   </rule>
 
-  <!-- ================= SQL INJECTION ================= -->
+    <!-- ================= SQL INJECTION ================= -->
 
   <rule id="100010" level="10">
-    <if_sid>100000</if_sid>
+    <if_sid>31106</if_sid>
     <field name="full_log">select</field>
-    <description>Possible SQL Injection detected (keyword: SELECT)</description>
+    <description>SQL Injection keyword detected: SELECT</description>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
   <rule id="100011" level="10">
-    <if_sid>100000</if_sid>
+    <if_sid>31106</if_sid>
     <field name="full_log">union</field>
-    <description>Possible SQL Injection detected (keyword: UNION)</description>
+    <description>SQL Injection keyword detected: UNION</description>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
   <rule id="100012" level="12">
-    <if_sid>100000</if_sid>
+    <if_sid>31106</if_sid>
     <field name="full_log">information_schema</field>
     <description>SQL Injection database enumeration attempt</description>
     <mitre>
@@ -37,7 +37,7 @@
   </rule>
 
   <rule id="100013" level="12">
-    <if_sid>100000</if_sid>
+    <if_sid>31106</if_sid>
     <field name="full_log">--</field>
     <description>SQL Injection comment pattern detected</description>
     <mitre>
