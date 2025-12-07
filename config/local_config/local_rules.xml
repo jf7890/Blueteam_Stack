@@ -1,83 +1,99 @@
-<group name="web,modsecurity,fim">
+<group name="custom,web,waf,fim,attack_chain,">
 
   <!-- ================================================= -->
-  <!-- BASE RULE FOR MODSECURITY -->
+  <!-- BASE RULE FOR WEB ATTACK (APACHE / NGINX / MODSEC) -->
   <!-- ================================================= -->
 
   <rule id="100000" level="2">
-    <if_group>json</if_group>
-    <field name="transaction.producer.modsecurity">.</field>
-    <description>ModSecurity log detected</description>
+    <if_group>web</if_group>
+    <description>Base web traffic event</description>
   </rule>
 
-
   <!-- ================================================= -->
-  <!-- SQL INJECTION -->
+  <!-- SQL INJECTION DETECTION -->
   <!-- ================================================= -->
 
+  <!-- SQLi string pattern -->
   <rule id="100010" level="10">
     <if_sid>100000</if_sid>
-    <regex>942100|attack-sqli|SQL Injection</regex>
-    <description>SQL Injection attempt detected by ModSecurity</description>
+    <regex>(\%27)|(\')|(\-\-)|(\%23)|(#)|(\bunion\b)|(\bselect\b)|(\binformation_schema\b)</regex>
+    <description>SQL Injection attempt detected in HTTP request</description>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
 
-
-  <!-- ================================================= -->
-  <!-- BLOCKED REQUEST -->
-  <!-- ================================================= -->
-
-  <rule id="100020" level="8">
-    <if_sid>100000</if_sid>
-    <field name="transaction.response.http_code">^403$</field>
-    <description>Request blocked by WAF</description>
-  </rule>
-
-
-  <!-- ================================================= -->
-  <!-- SQLI BLOCKED -->
-  <!-- ================================================= -->
-
-  <rule id="100021" level="12">
+  <!-- SQLi success (HTTP 200) -->
+  <rule id="100011" level="12">
     <if_sid>100010</if_sid>
-    <field name="transaction.response.http_code">^403$</field>
-    <description>SQL Injection blocked by WAF from $(transaction.client_ip)</description>
+    <field name="data.id">200</field>
+    <description>SQL Injection executed successfully (HTTP 200)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
-
-  <!-- ================================================= -->
-  <!-- BRUTE FORCE SQLI -->
-  <!-- ================================================= -->
-
-  <rule id="100022" level="15" frequency="3" timeframe="300">
+  <!-- Repeated SQLi from same IP -->
+  <rule id="100012" level="15" frequency="3" timeframe="300">
     <if_matched_sid>100010</if_matched_sid>
-    <same_field>transaction.client_ip</same_field>
+    <same_field>data.srcip</same_field>
     <description>Multiple SQL Injection attempts from same IP</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
   </rule>
 
-
   <!-- ================================================= -->
-  <!-- WEB SHELL UPLOAD -->
+  <!-- FIM: WEB FILE UPLOAD -->
   <!-- ================================================= -->
 
-  <rule id="100100" level="12">
+  <!-- File added -->
+  <rule id="100100" level="8">
     <if_group>syscheck</if_group>
-    <regex>\.php$|\.jsp$|\.asp$|\.aspx$</regex>
-    <description>Webshell file uploaded</description>
+    <field name="syscheck.event">added</field>
+    <description>New file detected on web server</description>
   </rule>
 
-
-  <!-- ================================================= -->
-  <!-- WEB SHELL COMMAND EXEC -->
-  <!-- ================================================= -->
-
-  <rule id="100101" level="13">
+  <!-- Upload to web directory -->
+  <rule id="100101" level="10">
     <if_sid>100100</if_sid>
-    <regex>cmd=|exec|system\(|passthru</regex>
-    <description>Possible webshell command execution</description>
+    <regex>(/dvwa_upload/|/uploads/|/html/)</regex>
+    <description>File uploaded to web-accessible directory</description>
+    <mitre>
+      <id>T1505</id>
+    </mitre>
   </rule>
 
+  <!-- Dangerous extension -->
+  <rule id="100102" level="13">
+    <if_sid>100101</if_sid>
+    <regex>\.(php|jsp|asp|aspx|sh|py|pl)$</regex>
+    <description>Webshell file detected by extension</description>
+    <mitre>
+      <id>T1505</id>
+    </mitre>
+  </rule>
+
+  <!-- Multiple files upload -->
+  <rule id="100103" level="14" frequency="3" timeframe="120">
+    <if_matched_sid>100101</if_matched_sid>
+    <same_field>syscheck.path</same_field>
+    <description>Multiple file uploads in short time</description>
+  </rule>
+
+  <!-- ================================================= -->
+  <!-- CORRELATION: SQLi → Upload -->
+  <!-- ================================================= -->
+
+  <!-- SQLi followed by file upload -->
+  <rule id="100200" level="15">
+    <if_matched_sid>100010</if_matched_sid>
+    <if_matched_sid>100101</if_matched_sid>
+    <description>ATTACK CHAIN: SQL Injection followed by malicious file upload</description>
+    <mitre>
+      <id>T1190</id>
+      <id>T1505</id>
+    </mitre>
+  </rule>
 
 </group>
