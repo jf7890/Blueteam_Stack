@@ -9,37 +9,10 @@
 
     <!-- ================= SQL INJECTION ================= -->
 
-  <rule id="100010" level="10">
-    <if_sid>31106</if_sid>
-    <field name="full_log">select</field>
-    <description>SQL Injection keyword detected: SELECT</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-  </rule>
-
-  <rule id="100011" level="10">
-    <if_sid>31106</if_sid>
-    <field name="full_log">union</field>
-    <description>SQL Injection keyword detected: UNION</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-  </rule>
-
-  <rule id="100012" level="12">
-    <if_sid>31106</if_sid>
-    <field name="full_log">information_schema</field>
-    <description>SQL Injection database enumeration attempt</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-  </rule>
-
-  <rule id="100013" level="12">
-    <if_sid>31106</if_sid>
-    <field name="full_log">--</field>
-    <description>SQL Injection comment pattern detected</description>
+  <rule id="100010" level="12">
+    <if_sid>100000</if_sid>
+    <field name="data.url" type="pcre2">(?i)(select|union|information_schema|%27|%2D%2D)</field>
+    <description>Possible SQL Injection attempt detected in URL</description>
     <mitre>
       <id>T1190</id>
     </mitre>
