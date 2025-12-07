@@ -131,6 +131,7 @@ services:
       - ./config/mysql-logging.cnf:/mysql-logging.cnf:ro
       - ./logs/mysql:/var/log/mysql
       - ./logs/apache:/var/log/apache2
+      - ./fim/dvwa_upload:/var/www/html/hackable/uploads
     networks:
       - capstone-dmz-network
 
@@ -172,6 +173,8 @@ services:
       - postgres
     volumes:
       - ./logs/juiceshop:/var/log/juiceshop
+      - ./fim/juiceshop_uploads:/juice-shop/uploads
+      - ./fim/juiceshop_data:/juice-shop/data
     networks:
       - capstone-dmz-network
 
@@ -188,11 +191,7 @@ services:
       # - WAZUH_MANAGER_PORT=1514
       # - WAZUH_REGISTRATION_PORT=1515
     volumes:
-      # Docker socket to monitor containers
-      #- /var/run/docker.sock:/var/run/docker.sock:ro
-      # Wazuh agent configuration
       - ./config/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
-
       # Mount log directories from host (read-only)
       - ./logs/modsecurity:/var/log/app/modsecurity:ro
       - ./logs/nginx:/var/log/app/nginx:ro
@@ -200,6 +199,11 @@ services:
       - ./logs/mysql:/var/log/app/mysql:ro
       - ./logs/postgres:/var/log/app/postgres:ro
       - ./logs/juiceshop:/var/log/app/juiceshop:ro
+      # FIM DVWA
+      - ./fim/dvwa_upload:/var/monitor/dvwa_upload
+      # FIM Juiceshop
+      - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
+      - ./fim/juiceshop_data:/var/monitor/juiceshop/data
     depends_on:
       - backend
       - dvwa
