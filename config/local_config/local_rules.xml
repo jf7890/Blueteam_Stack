@@ -69,5 +69,42 @@
       <id>T1505</id>
     </mitre>
   </rule>
-
+  <rule id="100250" level="15">
+    <if_matched_sid>100300</if_matched_sid>
+    <if_matched_sid>100101</if_matched_sid>
+    <description>ATTACK CHAIN: SQLi (ModSecurity) → File Upload</description>
+    <mitre>
+      <id>T1190</id>
+      <id>T1505</id>
+    </mitre>
+  </rule>
 </group>
+
+  <!-- ================= MODSECURITY SQLi BASE ================= -->
+
+  <rule id="100300" level="10">
+    <if_sid>100000</if_sid>
+    <field name="transaction.messages.details.ruleId">^942</field>
+    <description>SQL Injection detected by ModSecurity CRS (ruleId 942xxx)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+
+  <!-- ================= SQL BLOCKED ================= -->
+
+  <rule id="100301" level="12">
+    <if_sid>100300</if_sid>
+    <field name="transaction.response.http_code">403</field>
+    <description>SQL Injection BLOCKED by WAF</description>
+  </rule>
+
+
+  <!-- ================= SQL SUCCESS ================= -->
+
+  <rule id="100302" level="13">
+    <if_sid>100300</if_sid>
+    <field name="transaction.response.http_code">200</field>
+    <description>SQL Injection SUCCESSFUL (HTTP 200)</description>
+  </rule>
