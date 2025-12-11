@@ -174,7 +174,7 @@ services:
     volumes:
       - ./logs/juiceshop:/var/log/juiceshop
       - ./fim/juiceshop_uploads:/juice-shop/uploads
-      - ./fim/juiceshop_data:/juice-shop/data
+      - ./fim/juiceshop_data:/juice-shop/logs
     networks:
       - capstone-dmz-network
 
