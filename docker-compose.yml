@@ -191,7 +191,7 @@ services:
       # - WAZUH_MANAGER_PORT=1514
       # - WAZUH_REGISTRATION_PORT=1515
     volumes:
-      - ./config/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
+      - ./config/ossec.conf:/var/ossec/etc/ossec.conf:ro
       # Mount log directories from host (read-only)
       - ./logs/modsecurity:/var/log/app/modsecurity:ro
       - ./logs/nginx:/var/log/app/nginx:ro
