@@ -178,37 +178,63 @@ services:
     networks:
       - capstone-dmz-network
 
-  wazuh-agent:
+  wazuh-agent-waf:
     image: wazuh/wazuh-agent:4.13.1
-    container_name: wazuh-agent-dmz
-    hostname: wazuh-agent-dmz
+    container_name: wazuh-agent-waf
+    hostname: wazuh-agent-waf
     restart: unless-stopped
     environment:
       - WAZUH_MANAGER=wazuh.master
-      - WAZUH_AGENT_NAME=wazuh-agent-dmz
+      - WAZUH_AGENT_NAME=wazuh-agent-waf
       - WAZUH_PASSWORD=SecretPassword
-      # Optional: Uncomment if you want to change default ports
-      # - WAZUH_MANAGER_PORT=1514
-      # - WAZUH_REGISTRATION_PORT=1515
     volumes:
-      - ./config/ossec.conf:/var/ossec/etc/ossec.conf:ro
-      # Mount log directories from host (read-only)
+      - ./config/ossec-waf.conf:/var/ossec/etc/ossec.conf:ro
       - ./logs/modsecurity:/var/log/app/modsecurity:ro
       - ./logs/nginx:/var/log/app/nginx:ro
+    depends_on:
+      - wazuh.master
+    networks:
+      - capstone-dmz-network
+      - capstone-siem-network
+      
+  wazuh-agent-dvwa:
+    image: wazuh/wazuh-agent:4.13.1
+    container_name: wazuh-agent-dvwa
+    hostname: wazuh-agent-dvwa
+    restart: unless-stopped
+    environment:
+      - WAZUH_MANAGER=wazuh.master
+      - WAZUH_AGENT_NAME=wazuh-agent-dvwa
+      - WAZUH_PASSWORD=SecretPassword
+    volumes:
+      - ./config/ossec-dvwa.conf:/var/ossec/etc/ossec.conf:ro
       - ./logs/apache:/var/log/app/apache:ro
       - ./logs/mysql:/var/log/app/mysql:ro
-      - ./logs/postgres:/var/log/app/postgres:ro
-      - ./logs/juiceshop:/var/log/app/juiceshop:ro
-      # FIM DVWA
       - ./fim/dvwa_upload:/var/monitor/dvwa_upload
-      # FIM Juiceshop
+    depends_on:
+      - wazuh.master
+      - dvwa
+    networks:
+      - capstone-dmz-network
+      - capstone-siem-network
+  wazuh-agent-juiceshop:
+    image: wazuh/wazuh-agent:4.13.1
+    container_name: wazuh-agent-juiceshop
+    hostname: wazuh-agent-juiceshop
+    restart: unless-stopped
+    environment:
+      - WAZUH_MANAGER=wazuh.master
+      - WAZUH_AGENT_NAME=wazuh-agent-juiceshop
+      - WAZUH_PASSWORD=SecretPassword
+    volumes:
+      - ./config/ossec-juiceshop.conf:/var/ossec/etc/ossec.conf:ro
+      - ./logs/juiceshop:/var/log/app/juiceshop:ro
+      - ./logs/postgres:/var/log/app/postgres:ro
       - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
       - ./fim/juiceshop_data:/var/monitor/juiceshop/data
     depends_on:
-      - backend
-      - dvwa
-      - juiceshop
       - wazuh.master
+      - dvwa
     networks:
       - capstone-dmz-network
       - capstone-siem-network
