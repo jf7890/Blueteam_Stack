@@ -1,4 +1,4 @@
-<group name="custom,web,fim,attack_chain,modsecurity,">
+<group name="custom,web,fim,modsecurity,">
 
   <rule id="100000" level="2">
     <decoded_as>json</decoded_as>
@@ -19,10 +19,11 @@
   <rule id="100021" level="12">
     <if_sid>100010</if_sid>
     <field name="transaction.response.http_code">403</field>
-    <description>SQL Injection blocked by WAF</description>
+    <description>SQL Injection BLOCKED by WAF</description>
   </rule>
 
-  <rule id="100022" level="13"> <if_sid>100010</if_sid>
+  <rule id="100022" level="13">
+    <if_sid>100010</if_sid>
     <field name="transaction.response.http_code">200</field>
     <description>SQL Injection successful (HTTP 200)</description>
   </rule>
@@ -51,14 +52,11 @@
     </mitre>
   </rule>
 
-  <rule id="100200" level="15">
-    <if_matched_sid>100010</if_matched_sid>
-    <if_matched_sid>100101</if_matched_sid>
-    <timeframe>300</timeframe> 
-    <same_agent /> 
-    <description>CRITICAL ATTACK CHAIN: SQL Injection followed by file upload</description>
+  <rule id="100102" level="13">
+    <if_sid>100101</if_sid>
+    <field name="syscheck.path" type="pcre2">\.php$</field>
+    <description>Possible Webshell (.php) uploaded to web directory</description>
     <mitre>
-      <id>T1190</id>
       <id>T1505</id>
     </mitre>
   </rule>
