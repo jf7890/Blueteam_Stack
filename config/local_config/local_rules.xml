@@ -1,38 +1,40 @@
-<group name="custom,web,fim,attack_chain,">
-
-  <!-- ================= BASE WEB EVENT ================= -->
+<group name="custom,web,fim,attack_chain,modsecurity,">
 
   <rule id="100000" level="2">
-    <if_group>json</if_group>
-    <field name="transaction.producer.modsecurity">.</field>
+    <decoded_as>json</decoded_as>
+    <field name="producer.modsecurity">.</field>
     <description>ModSecurity log detected</description>
+    <options>no_full_log</options>
   </rule>
-
-    <!-- ================= SQL INJECTION ================= -->
 
   <rule id="100010" level="10">
     <if_sid>100000</if_sid>
-    <regex>942100|attack-sqli|SQL Injection</regex>
+    <field name="messages.message" type="pcre2">(?i)SQL Injection</field>
     <description>SQL Injection attempt detected</description>
     <mitre>
       <id>T1190</id>
     </mitre>
   </rule>
-    <!-- ================= SQL Blocked ================= -->
+
   <rule id="100021" level="12">
     <if_sid>100010</if_sid>
     <field name="transaction.response.http_code">403</field>
     <description>SQL Injection blocked by WAF</description>
   </rule>
 
-    <!-- ================= SQL success ================= -->
-    <rule id="100022" level="8">
-      <if_sid>100010</if_sid>
-      <field name="transaction.response.http_code">200</field>
-      <description>SQL Injection successful (HTTP 200)</description>
-    </rule>
+  <rule id="100022" level="13"> <if_sid>100010</if_sid>
+    <field name="transaction.response.http_code">200</field>
+    <description>SQL Injection successful (HTTP 200)</description>
+  </rule>
 
-    <!-- ================= FIM ================= -->
+  <rule id="100300" level="10">
+    <if_sid>100000</if_sid>
+    <field name="messages.details.ruleId" type="pcre2">^942</field>
+    <description>SQL Injection detected by ModSecurity CRS (ruleId 942xxx)</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
 
   <rule id="100100" level="8">
     <if_group>syscheck</if_group>
@@ -49,63 +51,16 @@
     </mitre>
   </rule>
 
-  <rule id="100102" level="13">
-    <if_sid>100101</if_sid>
-    <field name="syscheck.path">.php</field>
-    <description>Webshell file detected (.php)</description>
-    <mitre>
-      <id>T1505</id>
-    </mitre>
-  </rule>
-
-  <!-- ================= CORRELATION ================= -->
-
   <rule id="100200" level="15">
     <if_matched_sid>100010</if_matched_sid>
     <if_matched_sid>100101</if_matched_sid>
-    <description>ATTACK CHAIN: SQL Injection followed by file upload</description>
-    <mitre>
-      <id>T1190</id>
-      <id>T1505</id>
-    </mitre>
-  </rule>
-  <rule id="100250" level="15">
-    <if_matched_sid>100300</if_matched_sid>
-    <if_matched_sid>100101</if_matched_sid>
-    <description>ATTACK CHAIN: SQLi (ModSecurity) → File Upload</description>
+    <timeframe>300</timeframe> 
+    <same_agent /> 
+    <description>CRITICAL ATTACK CHAIN: SQL Injection followed by file upload</description>
     <mitre>
       <id>T1190</id>
       <id>T1505</id>
     </mitre>
   </rule>
 
-
-  <!-- ================= MODSECURITY SQLi BASE ================= -->
-
-  <rule id="100300" level="10">
-    <if_sid>100000</if_sid>
-    <field name="transaction.messages.details.ruleId">^942</field>
-    <description>SQL Injection detected by ModSecurity CRS (ruleId 942xxx)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-  </rule>
-
-
-  <!-- ================= SQL BLOCKED ================= -->
-
-  <rule id="100301" level="12">
-    <if_sid>100300</if_sid>
-    <field name="transaction.response.http_code">403</field>
-    <description>SQL Injection BLOCKED by WAF</description>
-  </rule>
-
-
-  <!-- ================= SQL SUCCESS ================= -->
-
-  <rule id="100302" level="13">
-    <if_sid>100300</if_sid>
-    <field name="transaction.response.http_code">200</field>
-    <description>SQL Injection SUCCESSFUL (HTTP 200)</description>
-  </rule>
 </group>
