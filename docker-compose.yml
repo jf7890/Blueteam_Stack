@@ -169,6 +169,7 @@ services:
       - postgres
     volumes:
       - ./logs/juiceshop:/var/log/juiceshop
+      - ./logs/juiceshop:/juice-shop/logs/access.log.*
       - ./fim/juiceshop_uploads:/juice-shop/uploads
     networks:
       - capstone-dmz-network
@@ -300,7 +301,6 @@ services:
       - ./logs/juiceshop:/var/log/app/juiceshop:ro
       - ./logs/postgres:/var/log/app/postgres:ro
       - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
-      - ./fim/juiceshop_data:/var/monitor/juiceshop/data
     depends_on:
       - wazuh.master
       - dvwa
