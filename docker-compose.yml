@@ -461,6 +461,8 @@ volumes:
   acme_challenge:
     driver: local
   nginx_modules:
+    driver: local  
+  nginx_love_bootstrap_state:
     driver: local
   master-wazuh-api-configuration:
   master-wazuh-etc:
