@@ -20,19 +20,19 @@ class PipelineConfig:
 
 
 SUSPICIOUS_TOKENS = [
-    r"(?i)\bunion\b\s+\bselect\b",
-    r"(?i)\bselect\b.+\bfrom\b",
-    r"(?i)\bor\b\s+1=1\b",
-    r"(?i)<script\b",
-    r"(?i)\bjavascript:",
-    r"(?i)\b(onerror|onload)\s*=",
-    r"(?i)\.\./",
-    r"(?i)\b/etc/passwd\b",
-    r"(?i)\b(cmd=|command=)\b",
-    r"(?i)\b(;|\\|\\||&&)\b",
-    r"(?i)\b(base64|powershell|wget|curl)\b",
+    r"\bunion\b\s+\bselect\b",
+    r"\bselect\b.+\bfrom\b",
+    r"\bor\b\s+1=1\b",
+    r"<script\b",
+    r"\bjavascript:",
+    r"\b(onerror|onload)\s*=",
+    r"\.\./",
+    r"\b/etc/passwd\b",
+    r"\b(cmd=|command=)\b",
+    r"\b(;|\\|\\||&&)\b",
+    r"\b(base64|powershell|wget|curl)\b",
 ]
-SUSPICIOUS_RE = re.compile("|".join(SUSPICIOUS_TOKENS))
+SUSPICIOUS_RE = re.compile("|".join(SUSPICIOUS_TOKENS), flags=re.IGNORECASE)
 
 
 def _get_rule_level(event: dict[str, Any]) -> int:
@@ -204,4 +204,3 @@ class Pipeline:
         if len(self._recent) > self._recent_max:
             self._recent = self._recent[-self._recent_max :]
         self._last_finding_ts = time.time()
-
