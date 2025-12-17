@@ -174,7 +174,6 @@ services:
     volumes:
       - ./logs/juiceshop:/var/log/juiceshop
       - ./fim/juiceshop_uploads:/juice-shop/uploads
-      - ./fim/juiceshop_data:/juice-shop/logs
     networks:
       - capstone-dmz-network
 
@@ -281,31 +280,6 @@ services:
       - ./config/wazuh_indexer_ssl_certs/wazuh.master.pem:/etc/ssl/filebeat.pem
       - ./config/wazuh_indexer_ssl_certs/wazuh.master-key.pem:/etc/ssl/filebeat.key
       - ./config/wazuh_cluster/wazuh_manager.conf:/wazuh-config-mount/etc/ossec.conf
-    networks:
-      - capstone-siem-network
-
-  # AI Agent: tails Wazuh archives.json, filters, and generates findings.
-  ai-agent:
-    build:
-      context: ai-agent
-      dockerfile: Dockerfile
-    container_name: ai-agent
-    restart: unless-stopped
-    depends_on:
-      - wazuh.master
-    environment:
-      WAZUH_ARCHIVES_PATH: ${WAZUH_ARCHIVES_PATH:-/wazuh-logs/archives/archives.json}
-      AI_MIN_RULE_LEVEL: ${AI_MIN_RULE_LEVEL:-7}
-      AI_START_AT_END: ${AI_START_AT_END:-true}
-      AI_PROVIDER: ${AI_PROVIDER:-none}
-      AI_API_BASE: ${AI_API_BASE:-http://localhost:11434}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
-    volumes:
-      - master-wazuh-logs:/wazuh-logs:ro
-      - ./logs/ai-agent:/data
-    ports:
-      - "8088:8088"
     networks:
       - capstone-siem-network
 
