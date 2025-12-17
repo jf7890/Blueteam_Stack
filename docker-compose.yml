@@ -187,7 +187,7 @@ services:
       API_BASE: "http://nginx-love-backend:3001/api"
       ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin123}"
-      NEW_ADMIN_PASSWORD: "${NEW_ADMIN_PASSWORD:-ChangeMe!123}"
+      NEW_ADMIN_PASSWORD: "${NEW_ADMIN_PASSWORD:-Admin@123}"
       TOTP_CODE: "${TOTP_CODE:-}"
       PROXY_CONTAINER: "nginx-love-backend"
       JUICESHOP_CONTAINER: "juice-shop"
