@@ -260,6 +260,7 @@ services:
     volumes:
       - ./config/ossec-waf.conf:/var/ossec/etc/ossec.conf:ro
       - ./logs/modsecurity:/var/log/app/modsecurity:ro
+      - ./logs/nginx:/var/log/app/nginx:ro
     depends_on:
       - wazuh.master
     networks:
