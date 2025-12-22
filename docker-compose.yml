@@ -471,7 +471,7 @@ services:
       - --input-raw
       - :3000
       - --output-http
-      - http://http.ingest:9000/ingest
+      - http://http.ingest:9002/ingest
       - --http-allow-method
       - GET,POST,PUT,DELETE
       - --http-allow-url
@@ -481,13 +481,13 @@ services:
     restart: unless-stopped
 
   http.ingest:
-    image: jf7890/httpingest:v1
+    image: jf7890/httpingest:v2
     container_name: http-ingest
     restart: unless-stopped
     networks:
       - capstone-dmz-network
     ports:
-      - "9000:9000"
+      - "9002:9002"
 
 
 volumes:
