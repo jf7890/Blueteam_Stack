@@ -462,7 +462,7 @@ services:
     container_name: goreplay
     depends_on:
       - http.ingest
-    network_mode: "service:nginx-love-backend"
+    network_mode: "service:backend"
     command:
       - gor
       - --input-raw
