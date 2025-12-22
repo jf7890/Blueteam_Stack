@@ -458,15 +458,26 @@ services:
     restart: unless-stopped
 
   goreplay:
-    image: buger/goreplay
+    image: buger/goreplay:latest
     container_name: goreplay
-    network_mode: host
-    command: >
-      --input-raw :80
-      --output-http http://http.ingest:9000/ingest
-      --http-allow-method GET,POST,PUT,DELETE
-      --http-allow-url /(login|rest|vulnerabilities|api)
-      --output-http-timeout 2s
+    depends_on:
+      - http.ingest
+    networks:
+      - capstone-dmz-network
+    command:
+      - gor
+      - --input-raw
+      - :80
+      - --input-raw
+      - :3000
+      - --output-http
+      - http://http.ingest:9000/ingest
+      - --http-allow-method
+      - GET,POST,PUT,DELETE
+      - --http-allow-url
+      - /(login|rest|vulnerabilities|api)
+      - --output-http-timeout
+      - 2s
     restart: unless-stopped
 
   http.ingest:
