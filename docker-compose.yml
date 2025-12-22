@@ -481,7 +481,7 @@ services:
     restart: unless-stopped
 
   http.ingest:
-    image: jf7890/httpingest:v2
+    image: jf7890/httpingest:v3
     container_name: http-ingest
     restart: unless-stopped
     networks:
