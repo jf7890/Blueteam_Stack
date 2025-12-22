@@ -461,14 +461,11 @@ services:
     image: buger/goreplay:latest
     container_name: goreplay
     depends_on:
-      - http.ingest
+      - http-ingest
     network_mode: "service:backend"
-    command:
-      - gor
-      - --input-raw
-      - :80
-      - --output-http
-      - http://http.ingest:9002/ingest
+    command: >
+      gor --input-raw :80 
+      --output-http "http://http-ingest:9002/ingest"
     restart: unless-stopped
 
   http.ingest:
