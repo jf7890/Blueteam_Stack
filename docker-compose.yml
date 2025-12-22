@@ -468,10 +468,6 @@ services:
       - :80
       - --output-http
       - http://http.ingest:9002
-      - --output-http-method
-      - POST
-      - --output-http-path
-      - /ingest
       - --http-allow-method
       - GET,POST,PUT,DELETE
     restart: unless-stopped
