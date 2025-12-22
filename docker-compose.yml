@@ -460,14 +460,20 @@ services:
   goreplay:
     image: buger/goreplay:latest
     container_name: goreplay
+    network_mode: "service:nginx-love-backend"
     depends_on:
-      - http.ingest
-    network_mode: "service:backend"
+      - http-ingest
     command:
       - --input-raw
       - :80
       - --output-http
-      - http://http-ingest:9002/ingest
+      - http://http-ingest:9002
+      - --output-http-method
+      - POST
+      - --output-http-path
+      - /ingest
+      - --http-allow-method
+      - GET,POST,PUT,DELETE
     restart: unless-stopped
 
   http.ingest:
