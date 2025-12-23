@@ -458,20 +458,19 @@ services:
     restart: unless-stopped
 
   goreplay:
-    image: buger/goreplay:latest
+    image: jf7890/goreplay:v1
     container_name: goreplay
     network_mode: "service:backend"
     depends_on:
       - http.ingest
+      - backend
     command:
       - --input-raw
       - :80
       - --output-http
       - http://http.ingest:9002
-      - --http-allow-method
-      - GET,POST,PUT,DELETE
+      - --output-stdout
     restart: unless-stopped
-
   http.ingest:
     image: jf7890/httpingest:v5
     container_name: http-ingest
