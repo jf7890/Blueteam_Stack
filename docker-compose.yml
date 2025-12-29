@@ -10,8 +10,6 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    # ports:
-    # - "127.0.0.1:5432:5432"
     volumes:
       - postgres_nginx_love_data:/var/lib/postgresql/data
       - ./nginx-love/docker/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
@@ -81,7 +79,6 @@ services:
       - ./nginx-love/config/nginx.conf:/etc/nginx/nginx.conf:ro
 
       - ./config/modsecurity.conf:/etc/nginx/modsec/modsecurity.conf:ro
-      # - ./logs/nginx/modsec_audit.log:/var/log/modsec_audit.log
       - ./logs/modsecurity:/var/log/modsecurity
       - ./scripts/add-log-dir.sh:/add-log-dir.sh:ro
     entrypoint: /bin/sh -c "sh /add-log-dir.sh && exec /start.sh"
@@ -106,7 +103,6 @@ services:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:3001/api}
     container_name: nginx-love-frontend
     restart: unless-stopped
-    # network_mode: host
     ports:
       - "${WEB_PORT:-8080}:8080"
     networks:
@@ -120,7 +116,78 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+  # Bootstrap helper container: waits for Postgres + API health, then runs bootstrap-nginx_love.sh once
+  # (state stored in nginx_love_bootstrap_state so it won't rerun on restart; container removes itself afterwards)
+  nginx-love-bootstrap:
+    image: docker:27-cli
+    container_name: nginx-love-bootstrap
+    restart: on-failure:20
+    networks:
+      - capstone-dmz-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts/bootstrap-nginx_love.sh:/bootstrap-nginx_love.sh:ro
+      - nginx_love_bootstrap_state:/state
+    environment:
+      API_BASE: "http://nginx-love-backend:3001/api"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      NEW_ADMIN_PASSWORD: ${NEW_ADMIN_PASSWORD}
+      TOTP_CODE: "${TOTP_CODE:-}"
+      PROXY_CONTAINER: "nginx-love-backend"
+      JUICESHOP_CONTAINER: "juice-shop"
+      DVWA_CONTAINER: "dvwa"
+      AUTO_CONNECT_NETWORK: "true"
+    depends_on:
+      postgres-nginx-love:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      dvwa:
+        condition: service_started
+      juiceshop:
+        condition: service_started
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+          set -eu
+          SELF_NAME="nginx-love-bootstrap"
+          STATE_FILE="/state/.nginx_love_bootstrapped"
 
+          # If already bootstrapped, stay idle (so the container remains Up)
+          if [ -f "$$STATE_FILE" ]; then
+            echo "[bootstrap] already bootstrapped -> removing self"
+            docker rm -f "$$SELF_NAME" >/dev/null 2>&1 || true
+            exit 0
+          fi
+
+          apk add --no-cache bash curl jq >/dev/null
+
+          # Wait until Postgres is truly "healthy" (prevents backend 500 errors when Prisma is not connected yet)
+          echo "[bootstrap] waiting postgres healthy..."
+          while [ "$(docker inspect -f '{{.State.Health.Status}}' nginx-love-postgres 2>/dev/null || echo starting)" != "healthy" ]; do
+            sleep 2
+          done
+
+          # Wait for API health endpoint
+          echo "[bootstrap] waiting for API health: $$API_BASE/health"
+          while ! curl -fsS "$$API_BASE/health" >/dev/null 2>&1; do
+            sleep 2
+          done
+
+
+          # Windows or CRLF -> strip \r
+          cp /bootstrap-nginx_love.sh /tmp/bootstrap-nginx-love.sh
+          sed -i 's/\r$//' /tmp/bootstrap-nginx-love.sh
+
+          echo "[bootstrap] running bootstrap once..."
+          bash /tmp/bootstrap-nginx-love.sh
+
+          touch "$$STATE_FILE"
+          echo "[bootstrap] done -> removing self"
+          docker rm -f "$$SELF_NAME" >/dev/null 2>&1 || true
+          exit 0
   dvwa:
     image: vulnerables/web-dvwa
     container_name: dvwa
@@ -173,42 +240,67 @@ services:
       - postgres
     volumes:
       - ./logs/juiceshop:/var/log/juiceshop
+      - ./logs/juiceshop:/juice-shop/logs/access.log.*
       - ./fim/juiceshop_uploads:/juice-shop/uploads
-      - ./fim/juiceshop_data:/juice-shop/data
     networks:
       - capstone-dmz-network
 
-  wazuh-agent:
+  wazuh-agent-waf:
     image: wazuh/wazuh-agent:4.13.1
-    container_name: wazuh-agent-dmz
-    hostname: wazuh-agent-dmz
+    container_name: wazuh-agent-waf
+    hostname: wazuh-agent-waf
     restart: unless-stopped
     environment:
       - WAZUH_MANAGER=wazuh.master
-      - WAZUH_AGENT_NAME=wazuh-agent-dmz
+      - WAZUH_AGENT_NAME=wazuh-agent-waf
       - WAZUH_PASSWORD=SecretPassword
-      # Optional: Uncomment if you want to change default ports
-      # - WAZUH_MANAGER_PORT=1514
-      # - WAZUH_REGISTRATION_PORT=1515
     volumes:
-      - ./config/ossec.conf:/wazuh-config-mount/etc/ossec.conf:ro
-      # Mount log directories from host (read-only)
+      - ./config/ossec-waf.conf:/var/ossec/etc/ossec.conf:ro
       - ./logs/modsecurity:/var/log/app/modsecurity:ro
       - ./logs/nginx:/var/log/app/nginx:ro
+    depends_on:
+      - wazuh.master
+    networks:
+      - capstone-dmz-network
+      - capstone-siem-network
+      
+  wazuh-agent-dvwa:
+    image: wazuh/wazuh-agent:4.13.1
+    container_name: wazuh-agent-dvwa
+    hostname: wazuh-agent-dvwa
+    restart: unless-stopped
+    environment:
+      - WAZUH_MANAGER=wazuh.master
+      - WAZUH_AGENT_NAME=wazuh-agent-dvwa
+      - WAZUH_PASSWORD=SecretPassword
+    volumes:
+      - ./config/ossec-dvwa.conf:/var/ossec/etc/ossec.conf:ro
       - ./logs/apache:/var/log/app/apache:ro
       - ./logs/mysql:/var/log/app/mysql:ro
-      - ./logs/postgres:/var/log/app/postgres:ro
-      - ./logs/juiceshop:/var/log/app/juiceshop:ro
-      # FIM DVWA
       - ./fim/dvwa_upload:/var/monitor/dvwa_upload
-      # FIM Juiceshop
-      - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
-      - ./fim/juiceshop_data:/var/monitor/juiceshop/data
     depends_on:
-      - backend
-      - dvwa
-      - juiceshop
       - wazuh.master
+      - dvwa
+    networks:
+      - capstone-dmz-network
+      - capstone-siem-network
+  wazuh-agent-juiceshop:
+    image: wazuh/wazuh-agent:4.13.1
+    container_name: wazuh-agent-juiceshop
+    hostname: wazuh-agent-juiceshop
+    restart: unless-stopped
+    environment:
+      - WAZUH_MANAGER=wazuh.master
+      - WAZUH_AGENT_NAME=wazuh-agent-juiceshop
+      - WAZUH_PASSWORD=SecretPassword
+    volumes:
+      - ./config/ossec-juiceshop.conf:/var/ossec/etc/ossec.conf:ro
+      - ./logs/juiceshop:/var/log/app/juiceshop:ro
+      - ./logs/postgres:/var/log/app/postgres:ro
+      - ./fim/juiceshop_uploads:/var/monitor/juiceshop/uploads
+    depends_on:
+      - wazuh.master
+      - dvwa
     networks:
       - capstone-dmz-network
       - capstone-siem-network
@@ -258,43 +350,6 @@ services:
     networks:
       - capstone-siem-network
 
-  # wazuh.worker:
-  #   image: wazuh/wazuh-manager:4.13.1
-  #   hostname: wazuh.worker
-  #   restart: always
-  #   ulimits:
-  #     memlock:
-  #       soft: -1
-  #       hard: -1
-  #     nofile:
-  #       soft: 655360
-  #       hard: 655360
-  #   environment:
-  #     INDEXER_URL: https://wazuh1.indexer:9200
-  #     INDEXER_USERNAME: ${INDEXER_USERNAME}
-  #     INDEXER_PASSWORD: ${INDEXER_PASSWORD}
-  #     - FILEBEAT_SSL_VERIFICATION_MODE=full
-  #     - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
-  #     - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
-  #     - SSL_KEY=/etc/ssl/filebeat.key
-  #   volumes:
-  #     - worker-wazuh-api-configuration:/var/ossec/api/configuration
-  #     - worker-wazuh-etc:/var/ossec/etc
-  #     - worker-wazuh-logs:/var/ossec/logs
-  #     - worker-wazuh-queue:/var/ossec/queue
-  #     - worker-wazuh-var-multigroups:/var/ossec/var/multigroups
-  #     - worker-wazuh-integrations:/var/ossec/integrations
-  #     - worker-wazuh-active-response:/var/ossec/active-response/bin
-  #     - worker-wazuh-agentless:/var/ossec/agentless
-  #     - worker-wazuh-wodles:/var/ossec/wodles
-  #     - worker-filebeat-etc:/etc/filebeat
-  #     - worker-filebeat-var:/var/lib/filebeat
-  #     - ./config/wazuh_indexer_ssl_certs/root-ca-manager.pem:/etc/ssl/root-ca.pem
-  #     - ./config/wazuh_indexer_ssl_certs/wazuh.worker.pem:/etc/ssl/filebeat.pem
-  #     - ./config/wazuh_indexer_ssl_certs/wazuh.worker-key.pem:/etc/ssl/filebeat.key
-  #     - ./config/wazuh_cluster/wazuh_worker.conf:/wazuh-config-mount/etc/ossec.conf
-  #   networks:
-  #     - capstone-network
   wazuh1.indexer:
     image: wazuh/wazuh-indexer:4.13.1
     hostname: wazuh1.indexer
@@ -383,16 +438,48 @@ services:
       - "1514:1514"
     depends_on:
       - wazuh.master
-      # - wazuh.worker
       - wazuh.dashboard
     links:
       - wazuh.master:wazuh.master
-      # - wazuh.worker:wazuh.worker
       - wazuh.dashboard:wazuh.dashboard
     volumes:
       - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - capstone-siem-network
+  ai-analyzer:
+    image: hnquangit/gemma-270m-http-classification
+    container_name: ai-analyzer
+    ports:
+      - "9000:8080"
+    environment:
+      LLAMA_ARG_SYSTEM_PROMPT: >
+        You are an expert Cybersecurity Analyst.
+        Analyze the following HTTP request and return a JSON verdict.
+    restart: unless-stopped
+
+  goreplay:
+    image: jf7890/goreplay:v1
+    container_name: goreplay
+    network_mode: "service:backend"
+    depends_on:
+      - http.ingest
+      - backend
+    command:
+      - --input-raw
+      - :80
+      - --output-http
+      - http://http.ingest:9002
+      - --output-stdout
+    restart: unless-stopped
+  http.ingest:
+    image: jf7890/httpingest:v5
+    container_name: http-ingest
+    restart: unless-stopped
+    networks:
+      - capstone-dmz-network
+    ports:
+      - "9002:9002"
+
 
 volumes:
   postgres_data:
@@ -405,6 +492,8 @@ volumes:
   acme_challenge:
     driver: local
   nginx_modules:
+    driver: local  
+  nginx_love_bootstrap_state:
     driver: local
   master-wazuh-api-configuration:
   master-wazuh-etc:
